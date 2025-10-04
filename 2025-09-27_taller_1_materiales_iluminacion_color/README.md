@@ -118,7 +118,7 @@ Los colores se eligieron para maximizar el contraste entre elementos utilitarios
   - Iniciar/detener animación de cámara
 
 
-## Capturas y Video
+## Capturas y GIF
 
 
 <div align="center">
@@ -150,11 +150,13 @@ Los colores se eligieron para maximizar el contraste entre elementos utilitarios
 </div>
 
 
-### Video animado de la escena
+### GIF animado de la escena
+
+## Animación de la escena
 
 <div align="center">
 
-#### Recorrido animado mostrando cambios de luz, cámaras y materiales
-<video src="renders/VideoEscenaAnimada.mp4" controls width="600"></video>
+### Recorrido animado mostrando cambios de luz, cámaras y materiales
+<img src="renders/VideoEscenaAnimada.gif" alt="Recorrido animado de la escena" width="400"/>
 
 </div>
