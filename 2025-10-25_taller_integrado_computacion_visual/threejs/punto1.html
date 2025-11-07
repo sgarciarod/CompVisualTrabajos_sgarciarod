@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punto 1 - Materiales PBR, Luz y Color</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            max-width: 320px;
+            max-height: 85vh;
+            overflow-y: auto;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        #controls h2 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #4a9eff;
+            border-bottom: 2px solid #4a9eff;
+            padding-bottom: 8px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .control-group:last-child {
+            border-bottom: none;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        .control-group input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        
+        .control-group input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .control-group button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #4a9eff;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .control-group button:hover {
+            background: #3a7ed0;
+            transform: translateY(-2px);
+        }
+        
+        .control-group button.active {
+            background: #ffa94a;
+        }
+        
+        .value-display {
+            font-size: 11px;
+            color: #4a9eff;
+            text-align: right;
+            font-weight: bold;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            font-size: 11px;
+            max-width: 300px;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+        }
+        
+        #info h3 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        #info p {
+            margin: 5px 0;
+        }
+        
+        .cielab-box {
+            background: rgba(74, 158, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            border-left: 3px solid #4a9eff;
+        }
+        
+        .color-preview {
+            width: 30px;
+            height: 30px;
+            border-radius: 5px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="controls">
+        <h2> Punto 1: PBR & Lighting</h2>
+        
+        <!-- PBR Textures Controls -->
+        <div class="control-group">
+            <label><strong>PBR Textures</strong></label>
+            <label>Albedo Texture: <span id="albedo-val" class="value-display">0.0</span></label>
+            <input type="range" id="albedo-intensity" min="0" max="1" step="0.01" value="0.0">
+            
+            <label>Roughness: <span id="roughness-val" class="value-display">0.5</span></label>
+            <input type="range" id="roughness" min="0" max="1" step="0.01" value="0.5">
+            
+            <label>Metalness: <span id="metalness-val" class="value-display">0.0</span></label>
+            <input type="range" id="metalness" min="0" max="1" step="0.01" value="0.0">
+            
+            <label>Normal Intensity: <span id="normal-val" class="value-display">1.0</span></label>
+            <input type="range" id="normal-intensity" min="0" max="3" step="0.1" value="1.0">
+        </div>
+        
+        <!-- RGB/HSV Color Palette -->
+        <div class="control-group">
+            <label><strong> Paleta RGB/HSV</strong></label>
+            <label>Base Color (RGB)</label>
+            <input type="color" id="base-color" value="#4a9eff">
+            <div style="margin-top: 8px; font-size: 10px; color: #aaa;">
+                <div>RGB: <span id="rgb-values">74, 158, 255</span></div>
+                <div>HSV: <span id="hsv-values">210°, 71%, 100%</span></div>
+            </div>
+        </div>
+        
+        <!-- CIELAB Justification -->
+        <div class="control-group">
+            <label><strong> Contraste CIELAB</strong></label>
+            <div class="cielab-box">
+                <div style="font-size: 10px;">
+                    <strong>Color seleccionado:</strong><span class="color-preview" id="color-preview"></span><br>
+                    L*: <span id="lab-l">65</span> (Luminosidad)<br>
+                    a*: <span id="lab-a">-10</span> (Verde-Rojo)<br>
+                    b*: <span id="lab-b">-45</span> (Azul-Amarillo)<br>
+                    <br>
+                    <strong>ΔE vs Fondo:</strong> <span id="delta-e" style="color: #ffa94a;">--</span>
+                    <div style="margin-top: 5px; font-size: 9px; color: #aaa;">
+                        ΔE > 3: Contraste perceptible<br>
+                        ΔE > 10: Contraste fuerte
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Camera Controls -->
+        <div class="control-group">
+            <label><strong>Cámaras</strong></label>
+            <button id="btn-perspective" class="active">Perspectiva</button>
+            <button id="btn-orthographic">Ortográfica</button>
+        </div>
+        
+        <!-- Animations -->
+        <div class="control-group">
+            <label><strong>Animaciones</strong></label>
+            <button id="btn-animate"> Toggle Animación (Luz + Material)</button>
+        </div>
+    </div>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let mainObject;
+        let lights = {};
+        let clock = new THREE.Clock();
+        let animateActive = false;
+        
+        // Random base color
+        const randomColor = new THREE.Color(Math.random(), Math.random(), Math.random());
+        
+        // PBR Textures
+        let albedoTexture, roughnessTexture, metalnessTexture, normalTexture;
+
+        init();
+        animate();
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0a);
+            scene.fog = new THREE.Fog(0x0a0a0a, 10, 50);
+            
+            // Camera (Perspective by default)
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 3, 5);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // Generate PBR Textures
+            generatePBRTextures();
+            
+            // Setup lights (key, fill, rim, HDRI)
+            setupLights();
+            
+            // Create main object with PBR material
+            createMainObject();
+            
+            // Create environment
+            createEnvironment();
+            
+            // UI Event Listeners
+            setupEventListeners();
+            
+            // Update CIELAB on init
+            updateCIELAB();
+            
+            // Window resize handler
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function generatePBRTextures() {
+            const size = 512;
+            
+            // Albedo Texture (procedural rust/metal pattern - VISIBLE)
+            const albedoCanvas = document.createElement('canvas');
+            albedoCanvas.width = size;
+            albedoCanvas.height = size;
+            const albedoCtx = albedoCanvas.getContext('2d');
+            
+            // Create varied rust/metal pattern with clear visual distinction
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    // Create patches of rust and metal
+                    const patchX = Math.floor(x / 32);
+                    const patchY = Math.floor(y / 32);
+                    const isRust = (patchX + patchY) % 3 === 0;
+                    
+                    const noise = Math.random() * 40 - 20;
+                    
+                    let r, g, b;
+                    if (isRust) {
+                        // Rust color (orange-brown)
+                        r = 180 + noise;
+                        g = 90 + noise * 0.5;
+                        b = 40 + noise * 0.3;
+                    } else {
+                        // Metal color (gray-blue)
+                        r = 120 + noise;
+                        g = 130 + noise;
+                        b = 140 + noise;
+                    }
+                    
+                    albedoCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    albedoCtx.fillRect(x, y, 1, 1);
+                }
+            }
+            
+            // Add scratches for more detail
+            albedoCtx.strokeStyle = 'rgba(80, 80, 80, 0.3)';
+            albedoCtx.lineWidth = 2;
+            for (let i = 0; i < 20; i++) {
+                albedoCtx.beginPath();
+                const startX = Math.random() * size;
+                const startY = Math.random() * size;
+                const endX = startX + (Math.random() - 0.5) * 200;
+                const endY = startY + (Math.random() - 0.5) * 200;
+                albedoCtx.moveTo(startX, startY);
+                albedoCtx.lineTo(endX, endY);
+                albedoCtx.stroke();
+            }
+            
+            albedoTexture = new THREE.CanvasTexture(albedoCanvas);
+            albedoTexture.wrapS = THREE.RepeatWrapping;
+            albedoTexture.wrapT = THREE.RepeatWrapping;
+            albedoTexture.needsUpdate = true;
+            
+            // Roughness Map (varied roughness with bands)
+            const roughnessCanvas = document.createElement('canvas');
+            roughnessCanvas.width = size;
+            roughnessCanvas.height = size;
+            const roughnessCtx = roughnessCanvas.getContext('2d');
+            
+            // Crear patrón de bandas verticales alternadas
+            for (let x = 0; x < size; x++) {
+                const bandIndex = Math.floor(x / 64); // 8 bandas verticales
+                const isRough = bandIndex % 2 === 0;
+                const baseRoughness = isRough ? 250 : 50; // Alto contraste
+                
+                for (let y = 0; y < size; y++) {
+                    const noise = (Math.random() - 0.5) * 30;
+                    const value = Math.max(0, Math.min(255, baseRoughness + noise));
+                    roughnessCtx.fillStyle = `rgb(${value}, ${value}, ${value})`;
+                    roughnessCtx.fillRect(x, y, 1, 1);
+                }
+            }
+            roughnessTexture = new THREE.CanvasTexture(roughnessCanvas);
+            roughnessTexture.wrapS = THREE.RepeatWrapping;
+            roughnessTexture.wrapT = THREE.RepeatWrapping;
+            roughnessTexture.needsUpdate = true;
+            
+            // Metalness Map (checkerboard pattern)
+            const metalnessCanvas = document.createElement('canvas');
+            metalnessCanvas.width = size;
+            metalnessCanvas.height = size;
+            const metalnessCtx = metalnessCanvas.getContext('2d');
+            
+            // Patrón de tablero de ajedrez
+            const squareSize = 64;
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const squareX = Math.floor(x / squareSize);
+                    const squareY = Math.floor(y / squareSize);
+                    const isMetal = (squareX + squareY) % 2 === 0;
+                    const baseMetal = isMetal ? 250 : 10; // Máximo contraste
+                    const noise = (Math.random() - 0.5) * 20;
+                    const value = Math.max(0, Math.min(255, baseMetal + noise));
+                    metalnessCtx.fillStyle = `rgb(${value}, ${value}, ${value})`;
+                    metalnessCtx.fillRect(x, y, 1, 1);
+                }
+            }
+            metalnessTexture = new THREE.CanvasTexture(metalnessCanvas);
+            metalnessTexture.wrapS = THREE.RepeatWrapping;
+            metalnessTexture.wrapT = THREE.RepeatWrapping;
+            metalnessTexture.needsUpdate = true;
+            
+            // Normal Map (wave pattern para relieve visible)
+            const normalCanvas = document.createElement('canvas');
+            normalCanvas.width = size;
+            normalCanvas.height = size;
+            const normalCtx = normalCanvas.getContext('2d');
+            
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    // Crear ondas sinusoidales para relieves visibles
+                    const waveX = Math.sin(x / 20) * 60;
+                    const waveY = Math.sin(y / 20) * 60;
+                    
+                    const nx = Math.max(0, Math.min(255, 128 + waveX));
+                    const ny = Math.max(0, Math.min(255, 128 + waveY));
+                    const nz = 220; // Mantener Z alto para normales válidas
+                    
+                    normalCtx.fillStyle = `rgb(${nx}, ${ny}, ${nz})`;
+                    normalCtx.fillRect(x, y, 1, 1);
+                }
+            }
+            normalTexture = new THREE.CanvasTexture(normalCanvas);
+            normalTexture.wrapS = THREE.RepeatWrapping;
+            normalTexture.wrapT = THREE.RepeatWrapping;
+            normalTexture.needsUpdate = true;
+        }
+
+        function setupLights() {
+            // Key Light (main directional light)
+            lights.key = new THREE.DirectionalLight(0xffffff, 2.5);
+            lights.key.position.set(5, 8, 5);
+            lights.key.castShadow = true;
+            lights.key.shadow.mapSize.width = 2048;
+            lights.key.shadow.mapSize.height = 2048;
+            scene.add(lights.key);
+            
+            // Fill Light (soft fill from opposite)
+            lights.fill = new THREE.DirectionalLight(0xb0c4de, 1.0);
+            lights.fill.position.set(-3, 4, -3);
+            scene.add(lights.fill);
+            
+            // Rim Light (backlight for edge definition)
+            lights.rim = new THREE.DirectionalLight(0xffa94a, 1.5);
+            lights.rim.position.set(-5, 0, 5);
+            scene.add(lights.rim);
+            
+            // Ambient light (base illumination)
+            lights.ambient = new THREE.AmbientLight(0x404040, 0.8);
+            scene.add(lights.ambient);
+            
+            // Hemisphere light (HDRI simulation)
+            lights.hemisphere = new THREE.HemisphereLight(0x8899ff, 0x332211, 0.5);
+            scene.add(lights.hemisphere);
+        }
+
+        function createMainObject() {
+            const geometry = new THREE.TorusKnotGeometry(1.5, 0.5, 128, 32);
+            
+            const material = new THREE.MeshStandardMaterial({
+                color: randomColor, // Color random por defecto
+                roughnessMap: roughnessTexture,
+                metalnessMap: metalnessTexture,
+                normalMap: normalTexture,
+                roughness: 0.5, // Valor base cuando no hay mapa
+                metalness: 0.0, // Valor base cuando no hay mapa
+                normalScale: new THREE.Vector2(0, 0), // Desactivado inicialmente
+                envMapIntensity: 1.0
+            });
+            
+            mainObject = new THREE.Mesh(geometry, material);
+            mainObject.castShadow = true;
+            mainObject.receiveShadow = true;
+            scene.add(mainObject);
+        }
+
+        function createEnvironment() {
+            // Ground plane
+            const groundGeo = new THREE.PlaneGeometry(20, 20);
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a1a,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        function setupEventListeners() {
+            // Albedo texture intensity
+            document.getElementById('albedo-intensity').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (val > 0) {
+                    mainObject.material.map = albedoTexture;
+                    mainObject.material.needsUpdate = true;
+                } else {
+                    mainObject.material.map = null;
+                    mainObject.material.needsUpdate = true;
+                }
+                document.getElementById('albedo-val').textContent = val.toFixed(2);
+            });
+            
+            // Roughness - controla la intensidad del mapa
+            document.getElementById('roughness').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (val > 0) {
+                    mainObject.material.roughnessMap = roughnessTexture;
+                    mainObject.material.roughness = val; // Multiplicador
+                } else {
+                    mainObject.material.roughnessMap = null;
+                    mainObject.material.roughness = 0.5;
+                }
+                mainObject.material.needsUpdate = true;
+                document.getElementById('roughness-val').textContent = val.toFixed(2);
+            });
+            
+            // Metalness - controla la intensidad del mapa
+            document.getElementById('metalness').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (val > 0) {
+                    mainObject.material.metalnessMap = metalnessTexture;
+                    mainObject.material.metalness = val; // Multiplicador
+                } else {
+                    mainObject.material.metalnessMap = null;
+                    mainObject.material.metalness = 0.0;
+                }
+                mainObject.material.needsUpdate = true;
+                document.getElementById('metalness-val').textContent = val.toFixed(2);
+            });
+            
+            // Normal intensity
+            document.getElementById('normal-intensity').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (val > 0) {
+                    mainObject.material.normalMap = normalTexture;
+                    mainObject.material.normalScale.set(val, val);
+                } else {
+                    mainObject.material.normalMap = null;
+                    mainObject.material.normalScale.set(0, 0);
+                }
+                mainObject.material.needsUpdate = true;
+                document.getElementById('normal-val').textContent = val.toFixed(1);
+            });
+            
+            // Base color (updates albedo tint)
+            document.getElementById('base-color').addEventListener('input', (e) => {
+                const color = e.target.value;
+                mainObject.material.color.set(color);
+                updateColorInfo(color);
+                updateCIELAB();
+            });
+            
+            // Camera toggle
+            document.getElementById('btn-perspective').addEventListener('click', () => {
+                switchCameraToPerspective();
+                setActiveButton('btn-perspective', 'btn-orthographic');
+            });
+            
+            document.getElementById('btn-orthographic').addEventListener('click', () => {
+                switchCameraToOrthographic();
+                setActiveButton('btn-orthographic', 'btn-perspective');
+            });
+            
+            // Animation toggle
+            document.getElementById('btn-animate').addEventListener('click', () => {
+                animateActive = !animateActive;
+                document.getElementById('btn-animate').textContent = 
+                    animateActive ? '⏸️ Pausar Animación' : '▶️ Toggle Animación (Luz + Material)';
+                document.getElementById('btn-animate').classList.toggle('active', animateActive);
+            });
+        }
+
+        function updateColorInfo(hexColor) {
+            // Convert hex to RGB
+            const r = parseInt(hexColor.substr(1, 2), 16);
+            const g = parseInt(hexColor.substr(3, 2), 16);
+            const b = parseInt(hexColor.substr(5, 2), 16);
+            
+            // Display RGB
+            document.getElementById('rgb-values').textContent = `${r}, ${g}, ${b}`;
+            
+            // Convert to HSV
+            const hsv = rgbToHsv(r, g, b);
+            document.getElementById('hsv-values').textContent = 
+                `${Math.round(hsv.h)}°, ${Math.round(hsv.s)}%, ${Math.round(hsv.v)}%`;
+            
+            // Update color preview
+            document.getElementById('color-preview').style.backgroundColor = hexColor;
+        }
+
+        function rgbToHsv(r, g, b) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const diff = max - min;
+            
+            let h = 0;
+            let s = max === 0 ? 0 : diff / max;
+            let v = max;
+            
+            if (diff !== 0) {
+                if (max === r) {
+                    h = ((g - b) / diff + (g < b ? 6 : 0)) / 6;
+                } else if (max === g) {
+                    h = ((b - r) / diff + 2) / 6;
+                } else {
+                    h = ((r - g) / diff + 4) / 6;
+                }
+            }
+            
+            return {
+                h: h * 360,
+                s: s * 100,
+                v: v * 100
+            };
+        }
+
+        function updateCIELAB() {
+            const hexColor = document.getElementById('base-color').value;
+            const r = parseInt(hexColor.substr(1, 2), 16) / 255;
+            const g = parseInt(hexColor.substr(3, 2), 16) / 255;
+            const b = parseInt(hexColor.substr(5, 2), 16) / 255;
+            
+            const lab = rgbToLab(r, g, b);
+            
+            document.getElementById('lab-l').textContent = lab.L.toFixed(1);
+            document.getElementById('lab-a').textContent = lab.A.toFixed(1);
+            document.getElementById('lab-b').textContent = lab.B.toFixed(1);
+            
+            // Calculate ΔE against background (L*=4, a*=0, b*=0 for #0a0a0a)
+            const bgLab = { L: 4, A: 0, B: 0 };
+            const deltaE = Math.sqrt(
+                Math.pow(lab.L - bgLab.L, 2) +
+                Math.pow(lab.A - bgLab.A, 2) +
+                Math.pow(lab.B - bgLab.B, 2)
+            );
+            
+            document.getElementById('delta-e').textContent = deltaE.toFixed(1);
+            
+            // Color code the delta E value
+            const deltaEElement = document.getElementById('delta-e');
+            if (deltaE > 10) {
+                deltaEElement.style.color = '#00ff00';
+            } else if (deltaE > 3) {
+                deltaEElement.style.color = '#ffa94a';
+            } else {
+                deltaEElement.style.color = '#ff4444';
+            }
+        }
+
+        function rgbToLab(r, g, b) {
+            // Step 1: Linearize RGB (gamma correction)
+            let rLinear = r <= 0.04045 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
+            let gLinear = g <= 0.04045 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
+            let bLinear = b <= 0.04045 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
+            
+            // Step 2: RGB to XYZ (D65 illuminant)
+            let x = rLinear * 0.4124564 + gLinear * 0.3575761 + bLinear * 0.1804375;
+            let y = rLinear * 0.2126729 + gLinear * 0.7151522 + bLinear * 0.0721750;
+            let z = rLinear * 0.0193339 + gLinear * 0.1191920 + bLinear * 0.9503041;
+            
+            // Step 3: Normalize by D65 white point
+            x /= 0.95047;
+            y /= 1.00000;
+            z /= 1.08883;
+            
+            // Step 4: Apply f function
+            const f = (t) => t > 0.008856 ? Math.pow(t, 1/3) : (7.787 * t) + (16/116);
+            
+            // Step 5: Calculate LAB
+            let L = (116 * f(y)) - 16;
+            let A = 500 * (f(x) - f(y));
+            let B = 200 * (f(y) - f(z));
+            
+            return { L, A, B };
+        }
+
+        function switchCameraToPerspective() {
+            const aspect = window.innerWidth / window.innerHeight;
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            camera.position.set(5, 3, 5);
+            controls.object = camera;
+        }
+
+        function switchCameraToOrthographic() {
+            const aspect = window.innerWidth / window.innerHeight;
+            const frustumSize = 5;
+            camera = new THREE.OrthographicCamera(
+                frustumSize * aspect / -2,
+                frustumSize * aspect / 2,
+                frustumSize / 2,
+                frustumSize / -2,
+                0.1,
+                1000
+            );
+            camera.position.set(5, 3, 5);
+            controls.object = camera;
+        }
+
+        function setActiveButton(activeId, inactiveId) {
+            document.getElementById(activeId).classList.add('active');
+            document.getElementById(inactiveId).classList.remove('active');
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const elapsedTime = clock.getElapsedTime();
+            
+            // Rotate main object
+            mainObject.rotation.y = elapsedTime * 0.3;
+            mainObject.rotation.x = Math.sin(elapsedTime * 0.2) * 0.2;
+            
+            // Animate lights and materials if active
+            if (animateActive) {
+                // Animate light positions and intensities
+                lights.key.position.x = Math.cos(elapsedTime * 0.5) * 5;
+                lights.key.position.z = Math.sin(elapsedTime * 0.5) * 5;
+                lights.key.intensity = 2.0 + Math.sin(elapsedTime) * 0.5;
+                
+                lights.fill.intensity = 0.8 + Math.cos(elapsedTime * 0.7) * 0.3;
+                lights.rim.intensity = 1.2 + Math.sin(elapsedTime * 0.9) * 0.4;
+                
+                // Animate material properties
+                const roughnessCycle = (Math.sin(elapsedTime * 0.4) + 1) / 2;
+                const metalnessCycle = (Math.sin(elapsedTime * 0.3 + Math.PI) + 1) / 2;
+                
+                mainObject.material.roughness = roughnessCycle;
+                mainObject.material.metalness = metalnessCycle * 0.8;
+                
+                // Update UI
+                document.getElementById('roughness').value = roughnessCycle;
+                document.getElementById('roughness-val').textContent = roughnessCycle.toFixed(2);
+                document.getElementById('metalness').value = metalnessCycle * 0.8;
+                document.getElementById('metalness-val').textContent = (metalnessCycle * 0.8).toFixed(2);
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const aspect = window.innerWidth / window.innerHeight;
+            
+            if (camera.isPerspectiveCamera) {
+                camera.aspect = aspect;
+            } else {
+                const frustumSize = 5;
+                camera.left = frustumSize * aspect / -2;
+                camera.right = frustumSize * aspect / 2;
+                camera.top = frustumSize / 2;
+                camera.bottom = frustumSize / -2;
+            }
+            
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Initialize color info on load
+        updateColorInfo('#4a9eff');
+    </script>
+</body>
+</html>
